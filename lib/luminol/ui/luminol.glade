@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.24"/>
+  <object class="GtkAdjustment" id="ScaleAdjustment">
+    <property name="lower">25</property>
+    <property name="upper">150</property>
+    <property name="value">100</property>
+  </object>
   <template class="LuminolWindow" parent="GtkApplicationWindow">
     <property name="can-focus">False</property>
     <property name="default-width">960</property>
     <property name="default-height">540</property>
-    <property name="icon">assets/icon.png</property>
+    <property name="icon">assets\icon.png</property>
     <child>
       <object class="GtkBox" id="LuminolMainBox">
         <property name="visible">True</property>
@@ -460,8 +465,6 @@
                   <object class="GtkLabel" id="map_label">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="margin-left">5</property>
-                    <property name="margin-right">5</property>
                     <property name="margin-start">5</property>
                     <property name="margin-end">5</property>
                     <property name="label" translatable="yes">Map 000: (0 x 0)</property>
@@ -491,7 +494,6 @@
                   <object class="GtkLabel" id="coords">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="margin-left">5</property>
                     <property name="margin-start">5</property>
                     <property name="label" translatable="yes">(0, 0)</property>
                   </object>
@@ -513,9 +515,4 @@
       </object>
     </child>
   </template>
-  <object class="GtkAdjustment" id="ScaleAdjustment">
-    <property name="lower">25</property>
-    <property name="upper">150</property>
-    <property name="value">100</property>
-  </object>
 </interface>

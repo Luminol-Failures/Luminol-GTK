@@ -5,6 +5,11 @@ require 'gtk3'
 module System
   class << self
     attr_accessor :working_directory, :map
+
+    def tileset
+      tilesets[System.map.tileset_id]
+    end
+
     DATA_TYPES = {
       tilesets: "Tilesets",
       mapinfos: "MapInfos"
@@ -19,7 +24,7 @@ module System
 
     def load_file(filename)
       File.open(
-        File.join(working_directory, "Data", filename) + '.rxdata', "rb"
+        "#{File.join(working_directory, "Data", filename)}.rxdata", "rb"
       ) do |file|
         return Marshal.load(file)
       end
@@ -36,10 +41,8 @@ module System
     @surf_cache = {}
 
     def self.load_image(*paths)
-      path = File.join(System.working_directory, *paths) + ".png"
-      if @cache.include?(path)
-        return @cache[path]
-      end
+      path = "#{File.join(System.working_directory, *paths)}.png"
+      return @cache[path] if @cache.include?(path)
 
       buf = GdkPixbuf::Pixbuf.new(
         file: path
@@ -48,16 +51,18 @@ module System
     end
 
     def self.load_image_surf(*paths)
-      path = File.join(System.working_directory, *paths) + ".png"
+      path = "#{File.join(System.working_directory, *paths)}.png"
 
-      if @surf_cache.include?(path)
-        return @surf_cache[path]
-      end
+       return @surf_cache[path] if @surf_cache.include?(path)
 
       surf = Cairo::ImageSurface.from_png(
         path
       )
       @surf_cache[path] = surf
+    end
+
+    def self.load_tileset(tileset)
+      load_image('Graphics', 'Tilesets', tileset)
     end
   end
 end

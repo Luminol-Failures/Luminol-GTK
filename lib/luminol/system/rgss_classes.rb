@@ -6,9 +6,7 @@ class Table
   def initialize(x_size = 1, y_size = 1, z_size = 1)
     @xsize, @ysize, @zsize = x_size, y_size, z_size
 
-    @elements = Array.new(z_size) {
-      Array.new(y_size) { Array.new(x_size) { 0 } }
-    }
+    @elements = Array.new(@xsize * @ysize * @zsize) { 0 }
 
     @num_of_dimensions = 1
     @num_of_dimensions += 1 if y_size > 1
@@ -23,7 +21,7 @@ class Table
 
   def [](x, y = 0, z = 0)
     return nil if size_check(x, y, z)
-    @elements[z][y][x]
+    @elements[x + y * @ysize + z * @zsize]
   end
 
   def []=(x, y = 0, z = 0, val)
@@ -44,18 +42,20 @@ class Table
     @elements = new_elements
   end
 
-  def each
+  def each(&block)
     if block_given?
-      @elements.each_with_index do |z, z_index|
-        z.each_with_index do |y, y_index|
-          y.each_with_index do |x, x_index|
-            yield x, x_index, y_index, z_index
-          end
-        end
-      end
+      @elements.each(&block)
     else
       to_enum(:each)
     end
+  end
+
+  def pack(*args)
+    @elements.pack(*args)
+  end
+
+  def size
+    @xsize + @ysize + @zsize
   end
 
   def _dump(limit)
@@ -64,21 +64,7 @@ class Table
 
   def self._load(obj)
     data = obj.unpack("VVVVVv*")
-    num_of_dimensions, xsize, ysize, zsize, _, *elements = *data
-    if num_of_dimensions > 1
-      if xsize > 1
-        elements = elements.each_slice(xsize).to_a
-      else
-        elements = elements.map{|element|[element]}
-      end
-    end
-    if num_of_dimensions > 2
-      if ysize > 1
-        elements = elements.each_slice(ysize).to_a
-      else
-        elements = elements.map{|element|[element]}
-      end
-    end
+    _num_of_dimensions, xsize, ysize, zsize, _, *elements = *data
     t = Table.new(xsize, ysize, zsize)
     t.instance_variable_set(:@elements, elements)
     t

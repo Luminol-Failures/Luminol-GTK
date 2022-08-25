@@ -1,5 +1,6 @@
 require 'gtk3'
 require_relative '../system/system'
+require_relative '../core/tilemap'
 
 class LuminolWindow < Gtk::ApplicationWindow
   type_register
@@ -19,12 +20,6 @@ class LuminolWindow < Gtk::ApplicationWindow
   end
 
   def initialize(app)
-    if $software_tilemap
-      require_relative 'software_tilemap'
-    else
-      require_relative 'hardware_tilemap'
-    end
-
     super application: app
 
     create_mapinfos_renderer
@@ -36,11 +31,11 @@ class LuminolWindow < Gtk::ApplicationWindow
       open_project
     end
 
-    map_infos.signal_connect "cursor-changed" do |tree|
+    map_infos.signal_connect 'cursor-changed' do |tree|
       change_map(tree)
     end
 
-    tile_picker.signal_connect "draw" do |widget, ctx|
+    tile_picker.signal_connect 'draw' do |widget, ctx|
       tilepicker_draw widget, ctx
     end
   end
@@ -89,12 +84,8 @@ class LuminolWindow < Gtk::ApplicationWindow
   def create_mapinfos_renderer
     name_renderer = Gtk::CellRendererText.new
     map_infos.insert_column(
-      -1, "Map", name_renderer, text: NAME_COL
+      -1, 'Map', name_renderer, text: NAME_COL
     )
-    #id_renderer = Gtk::CellRendererText.new
-    #map_infos.insert_column(
-    #  -1, "ID", id_renderer, text: ID_COL
-    #)
   end
 
   def change_map(tree)
@@ -114,10 +105,7 @@ class LuminolWindow < Gtk::ApplicationWindow
 
   def tilepicker_draw(widget, ctx)
     return if System.map.nil?
-    image = System::Cache.load_image(
-      "Graphics", "Tilesets",
-      System.tilesets[System.map.tileset_id].tileset_name
-    )
+    image = System::Cache.load_tileset System.tileset.tileset_name
     ctx.set_source_pixbuf image, 0, 32
     ctx.paint
     ctx.destroy
@@ -128,7 +116,7 @@ class LuminolWindow < Gtk::ApplicationWindow
 
   def open_project
     dialog = Gtk::FileChooserDialog.new(
-      title: "Open an existing project",
+      title: 'Open an existing project',
       parent: self
     )
     dialog.add_buttons(
@@ -136,8 +124,8 @@ class LuminolWindow < Gtk::ApplicationWindow
       [Gtk::Stock::OPEN, :accept]
     )
     dialog.filter = Gtk::FileFilter.new
-    dialog.filter.add_pattern("*.luminol")
-    dialog.filter.add_pattern("*.rxproj")
+    dialog.filter.add_pattern('*.luminol')
+    dialog.filter.add_pattern('*.rxproj')
     response = dialog.run
 
     if response == :accept

@@ -9,3 +9,5 @@ gem "gtk3"
 gem "opengl-bindings2"
 gem "rake"
 gem "optparse"
+gem 'rubocop', group: 'development'
+gem 'ruby-vips'
