@@ -15,6 +15,7 @@ class Tilemap
     end
 
     area.signal_connect 'realize' do |_area, _context|
+      puts 'realize'
       _area.make_current # Create the GL context
       GL.load_lib # Load the GL library
       # This order is specific lest we get a segfault because... reasons
@@ -23,58 +24,69 @@ class Tilemap
       version = GL::GetString(GL::VERSION).to_s
       puts "OpenGL Version: #{version}\n"
       # Create the tilemap shader
+      create_vao
+      create_vbo
       create_shader
     end
   end
 
   def create_shader
     # Get the path to the shaders
-    base_path = File.join(__dir__, 'Shader', 'GeometryRenderer')
+    # base_path = File.join(__dir__, 'Shader', 'GeometryRenderer')
 
-    vert_handle = compile_shader(File.read("#{base_path}.vert"), GL::VERTEX_SHADER)
-    geom_handle = compile_shader(File.read("#{base_path}.geom"), GL::GEOMETRY_SHADER)
-    frag_handle = compile_shader(File.read("#{base_path}.frag"), GL::FRAGMENT_SHADER)
+    vertex_source = <<~VERT
+      #version 400
+      in vec3 vp;
+      void main () {
+        gl_Position = vec4 (vp, 1.0);
+      };
+    VERT
+    fragment_source = <<~FRAG
+      #version 400
+      out vec4 frag_colour;
+      void main () {
+        frag_colour = vec4 (0.5, 0.0, 0.5, 1.0);
+      };
+    FRAG
+    @vertex_handle = compile_shader(GL::VERTEX_SHADER, vertex_source)
+    @fragment_handle = compile_shader(GL::FRAGMENT_SHADER, fragment_source)
 
-    # Boilerplate
-    @progam_handle = GL.CreateProgram
-    GL.AttachShader(@progam_handle, vert_handle)
-    GL.AttachShader(@progam_handle, geom_handle)
-    GL.AttachShader(@progam_handle, frag_handle)
-    GL.LinkProgram(@progam_handle)
+    @program_handle = GL.CreateProgram
+    GL.AttachShader(@program_handle, @vertex_handle)
+    GL.AttachShader(@program_handle, @fragment_handle)
+    GL.LinkProgram(@program_handle)
 
-    # Free up the shaders
-    GL.DetachShader(@progam_handle, vert_handle)
-    GL.DeleteShader(vert_handle)
-
-    GL.DetachShader(@progam_handle, geom_handle)
-    GL.DeleteShader(geom_handle)
-
-    GL.DetachShader(@progam_handle, frag_handle)
-    GL.DeleteShader(frag_handle)
     # Wow that was painful
-  end
-
-  def create_vbo
-    vbo_buf = ' ' * 4
-    GL.GenBuffers(1, vbo_buf)
-    @vbo_handle = vbo_buf.unpack1('L')
-    GL.BindBuffer(GL::ARRAY_BUFFER, @vbo_handle)
-
-    GL.BufferData(GL::ARRAY_BUFFER, System.map.data.size * Fiddle::SIZEOF_SHORT, System.map.data.pack('S*'), GL::STATIC_DRAW)
   end
 
   def create_vao
     vao_buf = ' ' * 4
     GL.GenVertexArrays(1, vao_buf)
-    @vao_handle = vao_buf.unpack1('L')
-    GL.BindVertexArray(@vao_handle)
+    @vao = vao_buf.unpack1('L')
 
-    GL.BindBuffer(GL::ARRAY_BUFFER, @vbo_handle)
-    GL.EnableVertexAttribArray(0)
-    GL.VertexAttribIPointer(0, 1, GL::VERTEX_ATTRIB_ARRAY_INTEGER, Fiddle::SIZEOF_SHORT, 0)
+    GL.BindVertexArray(@vao)
   end
 
-  def compile_shader(source, type)
+  def create_vbo
+    points = [
+      0.0, 0.5, 0.0,  # x1, y1, z1
+      0.5, -0.5, 0.0, # x2, y2, z2
+      -0.5, -0.5, 0.0 # x3, y3, z3
+    ]
+
+    vbo_buf = ' ' * 4
+    GL.GenBuffers(1, vbo_buf)
+    @vbo = vbo_buf.unpack1('L')
+
+    GL.BindBuffer(GL::ARRAY_BUFFER, @vbo)
+    GL.BufferData(GL::ARRAY_BUFFER, 3 * 4 * Fiddle::SIZEOF_FLOAT, points.pack('F*'), GL::STATIC_DRAW)
+    GL.EnableVertexAttribArray(0)
+    GL.VertexAttribPointer(0, 3, GL::FLOAT, GL::FALSE, 0, 0)
+
+    GL.BindVertexArray(0)
+  end
+
+  def compile_shader(type, source)
     handle = GL.CreateShader(type)
     GL.ShaderSource(handle, 1, [source].pack('p'), [source.bytesize].pack('I'))
     GL.CompileShader(handle)
@@ -94,18 +106,12 @@ class Tilemap
 
   def prepare
     @atlas&.dispose
-    if @vao_handle
-      GL.DeleteVertexArrays(0, @vao_handle)
-      GL.DeleteBuffers(0, @vbo_handle)
-      @vbo_handle, @vao_handle = nil
-    end
-    create_vbo
-    create_vao
 
     @atlas = TileAtlas.new
   end
 
   def render(area, _context)
+    puts 'render'
     # Get the background color
     color = area.style.lookup_color('theme_bg_color')[1]
 
@@ -113,22 +119,10 @@ class Tilemap
     GL.ClearColor(color.red / MAX_C, color.green / MAX_C, color.blue / MAX_C, 1)
     GL.Clear(GL::COLOR_BUFFER_BIT)
 
-    return unless @atlas
+    GL.UseProgram(@program_handle)
+    GL.BindVertexArray(@vao)
+    GL.DrawArrays(GL::TRIANGLES, 0, 3)
 
-    @atlas.bind
-    GL.BindVertexArray(@vao_handle)
-
-    GL.Uniform2i(GL.GetUniformLocation(@progam_handle, "mapSize"), System.map.width, System.map.height)
-    mat = [
-      0,  0,  0,  0,
-      0,  0,  0,  0,
-      0,  0, -2,  0,
-      -1, -1, -1, 1
-    ]
-    GL.UniformMatrix4fv(GL.GetUniformLocation(@progam_handle, "projection"), 1, GL::FALSE, mat.pack('F*'))
-
-    GL.UseProgram(@progam_handle)
-    GL.DrawArrays(GL::POINTS, 0, System.map.data.size)
     # Not sure why we need to return true but it works
     true
   end
